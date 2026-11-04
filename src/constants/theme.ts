@@ -7,22 +7,13 @@ import '@/global.css';
 
 import { Platform } from 'react-native';
 
-export const Colors = {
-  light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
-  },
-  dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
-  },
-} as const;
+/**
+ * Paleta MeepleMatch: azul acero, grises, negro y plateado. Los valores y su
+ * adaptación por accesibilidad viven en `palettes.ts`.
+ */
+import { Colors } from '@/constants/palettes';
+
+export { Colors };
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
@@ -62,4 +53,10 @@ export const Spacing = {
 } as const;
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
-export const MaxContentWidth = 800;
+/** Ancho máximo del contenido en pantallas grandes (web / tablet). */
+export const MaxContentWidth = 1280;
+/**
+ * Espacio superior que ocupa la barra de navegación flotante de la web.
+ * En móvil las pestañas van abajo, así que no hace falta reservar nada.
+ */
+export const TopInset = Platform.select({ web: 88 }) ?? 0;

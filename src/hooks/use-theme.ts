@@ -3,12 +3,25 @@
  * https://docs.expo.dev/guides/color-schemes/
  */
 
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useMemo } from 'react';
 
-export function useTheme() {
-  const scheme = useColorScheme();
-  const theme = scheme === 'dark' ? 'dark' : 'light';
+import { buildPalette, type Palette } from '@/constants/palettes';
+import { useEffectiveColorScheme } from '@/hooks/use-effective-color-scheme';
+import { useAccessibility } from '@/providers/accessibility-provider';
 
-  return Colors[theme];
+/** Paleta vigente: tema claro/oscuro + contraste + modo de color elegidos. */
+export function useTheme(): Palette {
+  const scheme = useEffectiveColorScheme();
+  const { effective } = useAccessibility();
+  const name = scheme === 'dark' ? 'dark' : 'light';
+
+  return useMemo(
+    () =>
+      buildPalette({
+        scheme: name,
+        contrast: effective.contrast,
+        colorMode: effective.colorMode,
+      }),
+    [name, effective.contrast, effective.colorMode],
+  );
 }

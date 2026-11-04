@@ -6,4 +6,69 @@
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
   --font-rounded: 'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif;
   --font-serif: Georgia, 'Times New Roman', serif;
+
+  /* Las actualiza AccessibilityProvider según el tema y el contraste elegidos. */
+  --mm-focus: #1d4ed8;
+  --mm-text-scale: 1;
+}
+
+/* Foco visible al navegar con teclado (WCAG 2.4.7 y 2.4.11). */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[role='button']:focus-visible,
+[role='tab']:focus-visible,
+[role='link']:focus-visible,
+[role='slider']:focus-visible,
+[role='switch']:focus-visible,
+[role='radio']:focus-visible,
+[tabindex='0']:focus-visible {
+  outline: 3px solid var(--mm-focus) !important;
+  outline-offset: 2px !important;
+}
+
+/* Sin foco con el mouse, solo con teclado. */
+[role='button']:focus:not(:focus-visible),
+[tabindex='0']:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Reducir movimiento: preferencia propia o del sistema operativo. */
+html[data-reduce-motion='true'] *,
+html[data-reduce-motion='true'] *::before,
+html[data-reduce-motion='true'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-reduce-motion='false']) *,
+  html:not([data-reduce-motion='false']) *::before,
+  html:not([data-reduce-motion='false']) *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Enlace "saltar al contenido" para teclado y lectores de pantalla. */
+.mm-skip-link {
+  position: absolute;
+  left: 8px;
+  top: -64px;
+  z-index: 1000;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: #000;
+  color: #fff;
+  font: 700 14px/1.2 var(--font-display);
+  text-decoration: none;
+}
+.mm-skip-link:focus {
+  top: 8px;
 }
