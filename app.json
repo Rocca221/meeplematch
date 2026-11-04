@@ -57,6 +57,17 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "description": "Portal para jugadores de mesa: encuentra partidas, arma tu biblioteca y conecta con otros jugadores."
+    "description": "Portal para jugadores de mesa: encuentra partidas, arma tu biblioteca y conecta con otros jugadores.",
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "b8f5b7b6-042d-4b84-aba3-d52e629c8fd1"
+      }
+    },
+    "owner": "santi-rocca"
   }
 }
