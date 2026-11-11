@@ -382,8 +382,9 @@ vacío dicen «APK próximamente»).
 
 ## Descargar la app (APK)
 
-**Descarga directa:** <!-- REEMPLAZAR con el enlace -->
-`https://github.com/USUARIO/REPO/releases/latest/download/meeplematch.apk`
+**Descarga directa:** <https://github.com/Rocca221/meeplematch/releases/latest/download/meeplematch.apk>
+
+**Sitio público:** <https://rocca221.github.io/meeplematch/>
 
 Cómo publicar el APK de forma permanente (el enlace de EAS vence):
 
