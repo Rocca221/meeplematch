@@ -4,6 +4,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -11,7 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { SelectedMark } from '@/components/choice';
+import { Choice, SelectedMark } from '@/components/choice';
 import { StatusMessage } from '@/components/status-message';
 import { ZoomableImage } from '@/components/zoomable-image';
 import { Pressable } from '@/components/accessible-pressable';
@@ -25,6 +27,7 @@ import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useGridColumns } from '@/hooks/use-grid-columns';
 import { useTheme } from '@/hooks/use-theme';
 import { useTopInset } from '@/hooks/use-top-inset';
+import { confirmAction } from '@/lib/confirm';
 import { fitImageTo16x9 } from '@/lib/image-fit';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/auth-provider';
@@ -43,6 +46,7 @@ type Project = {
   game_id: string | null;
   custom_game_name: string | null;
   created_at: string;
+  expires_at: string | null;
 };
 
 type Player = {
@@ -72,7 +76,18 @@ const emptyForm = {
   desiredPlayers: '',
   gameSearch: '',
   customGame: '',
+  durationDays: '30',
 };
+
+/** Duraciones rápidas del anuncio; '' = sin vencimiento. */
+const DURATION_PRESETS = [
+  { label: '3 días', value: '3' },
+  { label: '1 semana', value: '7' },
+  { label: '2 semanas', value: '14' },
+  { label: '1 mes', value: '30' },
+  { label: '3 meses', value: '90' },
+  { label: 'Sin límite', value: '' },
+] as const;
 
 const EXPERIENCE_FILTERS = [
   { value: 'all', label: 'Cualquier nivel' },
@@ -138,6 +153,8 @@ export default function ProjectsScreen() {
   const [projectImageUri, setProjectImageUri] = useState<string | null>(null);
   const [projectImagePath, setProjectImagePath] = useState<string | null>(null);
   const [uploadingProjectImage, setUploadingProjectImage] = useState(false);
+  // En edición, la fecha de vencimiento solo cambia si la persona toca la duración.
+  const [durationTouched, setDurationTouched] = useState(false);
 
   const accent = theme.accent;
   const border = theme.border;
@@ -146,14 +163,21 @@ export default function ProjectsScreen() {
     const { data, error: projectsError } = await supabase
       .from('projects')
       .select(
-        'id, owner_id, title, description, long_term_goal, roles_needed, location, image_path, desired_players, game_id, custom_game_name, created_at',
+        'id, owner_id, title, description, long_term_goal, roles_needed, location, image_path, desired_players, game_id, custom_game_name, created_at, expires_at',
       )
       .eq('status', 'open')
       .order('created_at', { ascending: false });
 
     if (projectsError) throw projectsError;
 
-    const projectRows = (data ?? []) as Project[];
+    // Los anuncios vencidos solo los sigue viendo su autor (para renovarlos).
+    const nowMs = Date.now();
+    const projectRows = ((data ?? []) as Project[]).filter(
+      (project) =>
+        !project.expires_at ||
+        new Date(project.expires_at).getTime() > nowMs ||
+        project.owner_id === userId,
+    );
     if (!projectRows.length) {
       return {
         projects: projectRows,
@@ -418,6 +442,22 @@ export default function ProjectsScreen() {
       return;
     }
 
+    // undefined = no tocar el vencimiento actual (edición sin cambios).
+    let expiresAt: string | null | undefined;
+    if (!editingId || durationTouched) {
+      const rawDays = form.durationDays.trim();
+      if (rawDays === '') {
+        expiresAt = null;
+      } else {
+        const days = Number(rawDays);
+        if (!Number.isInteger(days) || days < 1 || days > 365) {
+          setNotice('La duración debe ser de 1 a 365 días, o déjala en «Sin límite».');
+          return;
+        }
+        expiresAt = new Date(Date.now() + days * 86_400_000).toISOString();
+      }
+    }
+
     setSubmittingProject(true);
     setNotice('');
 
@@ -466,6 +506,7 @@ export default function ProjectsScreen() {
         desired_players: desiredPlayers,
         game_id: gameMode === 'catalog' ? selectedGame?.id ?? null : null,
         custom_game_name: gameMode === 'custom' ? customGameName : null,
+        ...(expiresAt !== undefined ? { expires_at: expiresAt } : {}),
       };
       const result = editingId
         ? await supabase
@@ -493,6 +534,7 @@ export default function ProjectsScreen() {
       setGameMode('catalog');
       setProjectImageUri(null);
       setProjectImagePath(null);
+      setDurationTouched(false);
       setCreating(false);
       setEditingId(null);
       setNotice(
@@ -593,7 +635,16 @@ export default function ProjectsScreen() {
       desiredPlayers: project.desired_players?.toString() ?? '',
       gameSearch: project.game_id ? games[project.game_id]?.name ?? '' : '',
       customGame: project.custom_game_name ?? '',
+      durationDays: project.expires_at
+        ? String(
+            Math.max(
+              1,
+              Math.ceil((new Date(project.expires_at).getTime() - Date.now()) / 86_400_000),
+            ),
+          )
+        : '',
     });
+    setDurationTouched(false);
     setGameMode(project.custom_game_name ? 'custom' : 'catalog');
     setProjectImageUri(null);
     setProjectImagePath(project.image_path);
@@ -651,6 +702,52 @@ export default function ProjectsScreen() {
     setActiveAction('');
   }
 
+  async function deleteProject(project: Project) {
+    if (!userId) return;
+    const confirmed = await confirmAction(
+      'Eliminar anuncio',
+      `Se eliminará «${project.title}» junto con sus interesados. Esta acción no se puede deshacer.`,
+      'Eliminar',
+    );
+    if (!confirmed) return;
+
+    setActiveAction(`delete:${project.id}`);
+    setActionErrors((previous) => ({ ...previous, [project.id]: '' }));
+    const { error: deleteError } = await supabase
+      .from('projects')
+      .delete()
+      .eq('id', project.id)
+      .eq('owner_id', userId);
+
+    if (deleteError) {
+      setActionErrors((previous) => ({
+        ...previous,
+        [project.id]: deleteError.message,
+      }));
+    } else {
+      if (project.image_path) {
+        // Si falla, el anuncio ya está borrado; solo queda un archivo huérfano.
+        await supabase.storage.from('project-images').remove([project.image_path]);
+      }
+      setNotice('Tu anuncio se eliminó.');
+      await loadProjects();
+    }
+    setActiveAction('');
+  }
+
+  /** Cierra la ventana de publicar/editar y descarta lo escrito. */
+  function closeForm() {
+    setCreating(false);
+    setEditingId(null);
+    setForm(emptyForm);
+    setSelectedGame(null);
+    setGameMode('catalog');
+    setProjectImageUri(null);
+    setProjectImagePath(null);
+    setDurationTouched(false);
+    setNotice('');
+  }
+
   return (
     <ThemedView style={styles.screen}>
       <SafeAreaView style={styles.safeArea}>
@@ -684,25 +781,15 @@ export default function ProjectsScreen() {
             <Pressable
               accessibilityRole="button"
               onPress={() => {
-                setCreating((previous) => !previous);
-                if (creating) {
-                  setEditingId(null);
-                  setForm(emptyForm);
-                  setSelectedGame(null);
-                  setGameMode('catalog');
-                  setProjectImageUri(null);
-                  setProjectImagePath(null);
-                }
                 setNotice('');
+                setCreating(true);
               }}
               style={({ pressed }) => [
                 styles.primaryButton,
                 { backgroundColor: theme.accentFill },
                 pressed && styles.pressed,
               ]}>
-              <ThemedText style={styles.primaryButtonText}>
-                {creating ? 'Cancelar' : '+ Publicar'}
-              </ThemedText>
+              <ThemedText style={styles.primaryButtonText}>+ Publicar</ThemedText>
             </Pressable>
           </View>
 
@@ -880,7 +967,33 @@ export default function ProjectsScreen() {
             </ThemedView>
           ) : null}
 
-          {creating ? (
+          {/* Ventana a pantalla completa y opaca: mientras está abierta no se ve
+              ni se puede tocar el resto del tablón. */}
+          <Modal animationType="slide" onRequestClose={closeForm} visible={creating}>
+            <ThemedView style={styles.formModalScreen}>
+              <SafeAreaView style={styles.formModalSafe}>
+                <KeyboardAvoidingView style={styles.formModalSafe} behavior="padding">
+                  <ScrollView
+                    keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode="on-drag"
+                    contentContainerStyle={styles.formModalContent}>
+                    <View style={styles.formModalBar}>
+                      <ThemedText type="smallBold" themeColor="textSecondary">
+                        {editingId ? 'EDITAR ANUNCIO' : 'NUEVO ANUNCIO'}
+                      </ThemedText>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Cerrar sin guardar"
+                        disabled={submittingProject}
+                        onPress={closeForm}
+                        style={({ pressed }) => [
+                          styles.formModalClose,
+                          { borderColor: border },
+                          pressed && styles.pressed,
+                        ]}>
+                        <ThemedText type="smallBold">✕ Cerrar</ThemedText>
+                      </Pressable>
+                    </View>
             <ThemedView type="backgroundElement" style={styles.formCard}>
               <ThemedText type="subtitle" style={styles.formTitle}>
                 {editingId ? 'Edita tu búsqueda' : 'Publica una búsqueda'}
@@ -960,6 +1073,46 @@ export default function ProjectsScreen() {
                 textColor={theme.text}
                 multiline={false}
               />
+
+              <View style={styles.field}>
+                <ThemedText type="smallBold">Duración del anuncio</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {editingId && !durationTouched
+                    ? 'Sin cambios: se mantiene la fecha de vencimiento actual. Elige otra duración para volver a contar desde hoy.'
+                    : 'Cuánto tiempo quieres que esté abierto. Al vencer deja de verse para los demás y puedes renovarlo editándolo.'}
+                </ThemedText>
+                <View style={styles.fieldRow}>
+                  {DURATION_PRESETS.map((preset) => (
+                    <Choice
+                      key={preset.label}
+                      role="button"
+                      label={preset.label}
+                      selected={form.durationDays === preset.value}
+                      onPress={() => {
+                        setDurationTouched(true);
+                        setForm((value) => ({ ...value, durationDays: preset.value }));
+                      }}
+                    />
+                  ))}
+                </View>
+                <Field
+                  label="Días abiertos (personalizado)"
+                  value={form.durationDays}
+                  placeholder="Ej. 45"
+                  helper="De 1 a 365 días. Vacío = sin vencimiento."
+                  keyboardType="number-pad"
+                  onChangeText={(durationDays) => {
+                    setDurationTouched(true);
+                    setForm((value) => ({
+                      ...value,
+                      durationDays: durationDays.replace(/[^0-9]/g, ''),
+                    }));
+                  }}
+                  borderColor={border}
+                  textColor={theme.text}
+                  multiline={false}
+                />
+              </View>
 
               <View style={styles.field}>
                 <ThemedText type="smallBold">Imagen del anuncio</ThemedText>
@@ -1142,7 +1295,11 @@ export default function ProjectsScreen() {
                 </ThemedText>
               </Pressable>
             </ThemedView>
-          ) : null}
+                  </ScrollView>
+                </KeyboardAvoidingView>
+              </SafeAreaView>
+            </ThemedView>
+          </Modal>
 
           {notice && !creating ? (
             <ThemedText style={styles.notice}>{notice}</ThemedText>
@@ -1276,6 +1433,16 @@ export default function ProjectsScreen() {
                           value={`${project.desired_players} jugadores`}
                         />
                       ) : null}
+                      {project.expires_at ? (
+                        <Meta
+                          label={
+                            new Date(project.expires_at).getTime() <= Date.now()
+                              ? 'Venció'
+                              : 'Vence'
+                          }
+                          value={formatExpiry(project.expires_at)}
+                        />
+                      ) : null}
                     </View>
 
                     <View style={[styles.ownerRow, { borderTopColor: border }]}>
@@ -1346,6 +1513,18 @@ export default function ProjectsScreen() {
                               {activeAction === `close:${project.id}`
                                 ? 'Cerrando...'
                                 : 'Cerrar'}
+                            </ThemedText>
+                          </Pressable>
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={`Eliminar el anuncio ${project.title}`}
+                            disabled={activeAction === `delete:${project.id}`}
+                            onPress={() => void deleteProject(project)}
+                            style={[styles.invitationButton, { borderColor: theme.danger }]}>
+                            <ThemedText type="smallBold" style={{ color: theme.danger }}>
+                              {activeAction === `delete:${project.id}`
+                                ? 'Eliminando...'
+                                : 'Eliminar'}
                             </ThemedText>
                           </Pressable>
                         </View>
@@ -1438,6 +1617,14 @@ function Meta({ label, value }: { label: string; value: string }) {
       <ThemedText type="smallBold">{value}</ThemedText>
     </View>
   );
+}
+
+function formatExpiry(iso: string) {
+  return new Date(iso).toLocaleDateString('es-AR', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
 }
 
 function experienceLabel(level: string) {
@@ -1580,9 +1767,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.one,
   },
   formCard: {
+    width: '100%',
+    maxWidth: 760,
     borderRadius: 20,
     padding: Spacing.three,
     gap: Spacing.three,
+  },
+  formModalScreen: {
+    flex: 1,
+  },
+  formModalSafe: {
+    flex: 1,
+  },
+  formModalContent: {
+    alignItems: 'center',
+    gap: Spacing.three,
+    padding: Spacing.four,
+    paddingBottom: Spacing.six,
+  },
+  formModalBar: {
+    width: '100%',
+    maxWidth: 760,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  formModalClose: {
+    borderWidth: 1,
+    borderRadius: 6,
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
   },
   formTitle: {
     fontSize: 23,

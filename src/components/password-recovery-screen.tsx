@@ -58,12 +58,14 @@ export function PasswordRecoveryScreen() {
   return (
     <ThemedView style={styles.screen}>
       <SafeAreaView style={styles.safeArea}>
-        <KeyboardAvoidingView
-          style={styles.keyboardArea}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        {/* 'padding' también en Android: con edge-to-edge el sistema ya no
+            redimensiona la ventana y el teclado tapaba los campos. */}
+        <KeyboardAvoidingView style={styles.keyboardArea} behavior="padding">
           <ScrollView
             contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled">
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+            showsVerticalScrollIndicator={false}>
             <View style={styles.card}>
               <ThemedText type="title" style={styles.title}>
                 Crear contraseña nueva
@@ -175,6 +177,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.four,
+    paddingBottom: Spacing.six,
   },
   card: {
     width: '100%',

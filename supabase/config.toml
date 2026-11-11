@@ -1,2 +1,5 @@
 [functions.send-message]
 verify_jwt = true
+
+[functions.assistant]
+verify_jwt = true

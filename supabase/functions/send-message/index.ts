@@ -58,6 +58,19 @@ Deno.serve(async (request: Request) => {
     return jsonResponse({ error: 'Invalid or expired session.' }, 401);
   }
 
+  const { data: suspension, error: suspensionError } = await adminClient
+    .from('user_suspensions')
+    .select('user_id')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (suspensionError) {
+    console.error('Suspension lookup failed:', suspensionError.message);
+    return jsonResponse({ error: 'Could not verify the account.' }, 500);
+  }
+  if (suspension) {
+    return jsonResponse({ error: 'Tu cuenta está suspendida.' }, 403);
+  }
+
   let input: SendMessageBody;
   try {
     input = await request.json();

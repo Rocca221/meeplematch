@@ -2,6 +2,7 @@ import { Link } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -29,6 +30,7 @@ import {
 import { gameCoverUrl } from '@/lib/game-cover';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/auth-provider';
+import { useAppPanels } from '@/providers/app-panels-provider';
 import { useLanguage } from '@/providers/language-provider';
 
 /** Publicaciones cercanas que se muestran como máximo en el carrusel. */
@@ -105,6 +107,7 @@ export default function HomeScreen() {
   const [dashboardError, setDashboardError] = useState('');
   const [signOutError, setSignOutError] = useState('');
   const [signingOut, setSigningOut] = useState(false);
+  const { unreadCount, openInbox, isAdmin, openAdmin } = useAppPanels();
 
   const loadDashboard = useCallback(async () => {
     if (!userId) return;
@@ -423,19 +426,52 @@ const projectCards = visibleProjects.map((project) => {
                 Tu próxima gran partida empieza con una buena compañía.
               </ThemedText>
             </View>
-            <Pressable
-              accessibilityRole="button"
-              disabled={signingOut}
-              onPress={signOut}
-              style={({ pressed }) => [
-                styles.signOutButton,
-                { borderColor: border },
-                pressed && styles.pressed,
-              ]}>
-              <ThemedText type="smallBold" style={styles.upper}>
-                {signingOut ? 'Saliendo...' : 'Salir'}
-              </ThemedText>
-            </Pressable>
+            {/* En web, Avisos / Admin / Salir viven en la barra superior. */}
+            {Platform.OS !== 'web' ? (
+              <View style={styles.headerActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Avisos, ${unreadCount} sin leer`}
+                  onPress={openInbox}
+                  style={({ pressed }) => [
+                    styles.signOutButton,
+                    { borderColor: border },
+                    pressed && styles.pressed,
+                  ]}>
+                  <ThemedText type="smallBold" style={styles.upper}>
+                    {unreadCount ? `Avisos (${unreadCount})` : 'Avisos'}
+                  </ThemedText>
+                </Pressable>
+                {isAdmin ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Abrir panel de administración"
+                    onPress={openAdmin}
+                    style={({ pressed }) => [
+                      styles.signOutButton,
+                      { borderColor: border },
+                      pressed && styles.pressed,
+                    ]}>
+                    <ThemedText type="smallBold" style={styles.upper}>
+                      Admin
+                    </ThemedText>
+                  </Pressable>
+                ) : null}
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={signingOut}
+                  onPress={signOut}
+                  style={({ pressed }) => [
+                    styles.signOutButton,
+                    { borderColor: border },
+                    pressed && styles.pressed,
+                  ]}>
+                  <ThemedText type="smallBold" style={styles.upper}>
+                    {signingOut ? 'Saliendo...' : 'Salir'}
+                  </ThemedText>
+                </Pressable>
+              </View>
+            ) : null}
           </View>
 
           {loading ? (
@@ -851,6 +887,11 @@ const styles = StyleSheet.create({
     fontSize: 32,
     lineHeight: 40,
     fontWeight: 700,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
   },
   signOutButton: {
     borderWidth: 1,

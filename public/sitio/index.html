@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MeepleMatch · Encuentra con quién jugar</title>
+  <meta name="description" content="MeepleMatch conecta a jugadores de mesa: arma tu biblioteca, publica o súmate a partidas y chatea en privado solo con quien te acepta. App para Android y web.">
+  <meta name="color-scheme" content="light dark">
+  <meta property="og:title" content="MeepleMatch · Encuentra con quién jugar">
+  <meta property="og:description" content="Comunidad para jugadores de mesa: tablón de partidas, biblioteca de juegos y chat privado seguro.">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="favicon.ico">
+  <style>
+    :root {
+      --bg: #F4F6F9; --surface: #FFFFFF; --text: #14181E; --muted: #4F5966;
+      --border: #C9D0DA; --accent: #1F5CBF; --on-accent: #FFFFFF; --focus: #1D4ED8;
+      --code: #E8ECF2; --soft: rgba(31, 92, 191, .08); --shadow: 0 10px 30px rgba(20, 24, 30, .14);
+    }
+    :root[data-theme="dark"] {
+      --bg: #0B0D10; --surface: #151A21; --text: #E6EAF0; --muted: #9BA5B3;
+      --border: #2B3440; --accent: #2F6FDC; --on-accent: #FFFFFF; --focus: #8AB4FF;
+      --code: #1F2630; --soft: rgba(91, 147, 240, .12); --shadow: 0 10px 30px rgba(0, 0, 0, .5);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #0B0D10; --surface: #151A21; --text: #E6EAF0; --muted: #9BA5B3;
+        --border: #2B3440; --accent: #2F6FDC; --on-accent: #FFFFFF; --focus: #8AB4FF;
+        --code: #1F2630; --soft: rgba(91, 147, 240, .12); --shadow: 0 10px 30px rgba(0, 0, 0, .5);
+      }
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 76px; }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font: 16px/1.65 "Spline Sans", Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    a { color: var(--accent); }
+    img { max-width: 100%; height: auto; display: block; }
+    :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+    .skip { position: absolute; left: 8px; top: -64px; background: #000; color: #fff; padding: 10px 16px; border-radius: 8px; z-index: 100; }
+    .skip:focus { top: 8px; }
+    .wrap { width: 100%; max-width: 1100px; margin: 0 auto; padding: 0 20px; }
+
+    header.site { position: sticky; top: 0; z-index: 10; background: var(--bg); border-bottom: 1px solid var(--border); }
+    header.site .wrap { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding-top: 10px; padding-bottom: 10px; }
+    .brand { display: flex; align-items: center; gap: 10px; margin-right: auto; font: 700 16px Georgia, serif; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text); text-decoration: none; }
+    .brand i { width: 11px; height: 11px; background: var(--accent); transform: rotate(45deg); display: inline-block; border-radius: 2px; }
+    nav.main { display: flex; gap: 2px; flex-wrap: wrap; }
+    nav.main a { color: var(--muted); text-decoration: none; font-weight: 700; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; padding: 10px 10px; border-bottom: 2px solid transparent; }
+    nav.main a:hover { color: var(--text); border-bottom-color: var(--accent); }
+    button.theme { background: transparent; color: var(--muted); border: 0; border-bottom: 2px solid transparent; font: 700 13px inherit; letter-spacing: 1px; text-transform: uppercase; padding: 10px; cursor: pointer; min-height: 44px; }
+    button.theme:hover { color: var(--text); border-bottom-color: var(--accent); }
+
+    .hero { padding: 64px 0 56px; display: grid; gap: 40px; grid-template-columns: 1.1fr .9fr; align-items: center; }
+    .kicker { font-weight: 700; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+    h1 { font: 700 clamp(34px, 6vw, 56px)/1.1 Georgia, serif; margin: 12px 0 16px; }
+    .lead { font-size: 19px; color: var(--muted); max-width: 600px; }
+    .cta { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 22px; border-radius: 8px; font-weight: 700; text-decoration: none; border: 2px solid var(--accent); }
+    .btn.primary { background: var(--accent); color: var(--on-accent); }
+    .btn.ghost { background: transparent; color: var(--text); border-color: var(--border); }
+    .btn:hover { filter: brightness(1.08); }
+    .btn[aria-disabled="true"] { opacity: .65; cursor: not-allowed; }
+    .hero-phones { display: flex; justify-content: center; gap: 16px; }
+    .hero-phones .phone { width: 46%; max-width: 230px; }
+    .hero-phones .phone:nth-child(2) { margin-top: 36px; }
+
+    .phone { margin: 0; }
+    .phone img { border-radius: 22px; border: 1px solid var(--border); box-shadow: var(--shadow); background: var(--surface); }
+    .phone figcaption { margin-top: 10px; font-size: 14px; color: var(--muted); text-align: center; }
+
+    section { padding: 56px 0; border-top: 1px solid var(--border); }
+    h2 { font: 700 30px/1.2 Georgia, serif; margin: 0 0 8px; }
+    .sub { color: var(--muted); margin: 0 0 28px; max-width: 700px; }
+    .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+    .card h3 { margin: 0 0 6px; font-size: 18px; }
+    .card p { margin: 0; color: var(--muted); }
+    .card ul { margin: 8px 0 0; padding-left: 20px; color: var(--muted); }
+    .card li { margin: 4px 0; }
+    .two { display: grid; gap: 28px; grid-template-columns: 1fr 1fr; align-items: start; }
+    .check { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+    .check li { display: grid; grid-template-columns: 28px 1fr; gap: 10px; }
+    .check li::before { content: "✓"; width: 28px; height: 28px; border-radius: 50%; background: var(--soft); color: var(--accent); display: grid; place-items: center; font-weight: 700; }
+    .check b { display: block; }
+    .check span { color: var(--muted); }
+    .big { font: 700 22px/1.35 Georgia, serif; margin: 0 0 14px; }
+
+    ol.steps { list-style: none; counter-reset: s; padding: 0; margin: 0; display: grid; gap: 16px; }
+    ol.steps li { counter-increment: s; display: grid; grid-template-columns: 44px 1fr; gap: 14px; align-items: start; }
+    ol.steps li::before { content: counter(s); width: 44px; height: 44px; border-radius: 50%; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-weight: 700; }
+    ol.steps b { display: block; }
+    ol.steps span { color: var(--muted); }
+    code { background: var(--code); padding: 2px 6px; border-radius: 4px; font: 14px ui-monospace, Consolas, monospace; }
+
+    .shots { display: grid; gap: 22px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+    .shots .phone img { width: 100%; }
+
+    .creds { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+    .cred h3 { margin: 0; }
+    .tag { display: inline-block; margin-bottom: 8px; font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+    dl { margin: 14px 0; display: grid; grid-template-columns: auto 1fr auto; gap: 8px 12px; align-items: center; }
+    dt { color: var(--muted); font-size: 14px; }
+    dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+    .copy { background: transparent; color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px; font: 700 13px inherit; cursor: pointer; min-height: 36px; }
+    .copy:hover { border-color: var(--accent); }
+    .note { margin-top: 20px; padding: 14px 16px; border: 1px solid var(--border); border-left: 5px solid var(--accent); border-radius: 8px; background: var(--surface); color: var(--muted); }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .chip { padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); font-size: 14px; color: var(--muted); }
+
+    footer { border-top: 1px solid var(--border); padding: 28px 0 48px; color: var(--muted); font-size: 14px; }
+
+    @media (max-width: 800px) {
+      header.site { position: static; }
+      .hero { grid-template-columns: 1fr; padding-top: 36px; }
+      .two { grid-template-columns: 1fr; }
+      .hero-phones .phone { width: 44%; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#contenido">Saltar al contenido principal</a>
+
+  <header class="site">
+    <div class="wrap">
+      <a class="brand" href="#inicio"><i aria-hidden="true"></i> MeepleMatch</a>
+      <nav class="main" aria-label="Secciones del sitio">
+        <a href="#objetivo">Objetivo</a>
+        <a href="#publico">Para quién</a>
+        <a href="#como-funciona">Cómo funciona</a>
+        <a href="#capturas">Capturas</a>
+        <a href="#instalar">Instalar</a>
+        <a href="#prueba">Cuentas de prueba</a>
+      </nav>
+      <button class="theme" id="theme" type="button" aria-label="Cambiar entre tema claro y oscuro">Tema</button>
+    </div>
+  </header>
+
+  <main id="contenido">
+    <div class="wrap">
+
+      <div class="hero" id="inicio">
+        <div>
+          <div class="kicker">Comunidad de jugadores de mesa</div>
+          <h1>Encuentra con quién jugar.</h1>
+          <p class="lead">MeepleMatch une a quienes quieren jugar juegos de mesa y no tienen con quién. Arma tu biblioteca, publica o súmate a una partida y chatea en privado solo con personas que te aceptaron.</p>
+          <div class="cta">
+            <a class="btn primary" id="apk" href="#instalar" aria-disabled="true">Descargar APK</a>
+            <a class="btn ghost" href="#prueba">Probar con una cuenta demo</a>
+            <a class="btn ghost" data-web hidden href="#instalar">Abrir la app web</a>
+          </div>
+        </div>
+        <div class="hero-phones" aria-hidden="false">
+          <figure class="phone">
+            <img src="img/inicio-claro.jpg" width="540" height="1058" alt="Pantalla de inicio de MeepleMatch en tema claro, con el saludo, los contadores de juegos e invitaciones y las mesas recientes.">
+          </figure>
+          <figure class="phone">
+            <img src="img/inicio-oscuro.jpg" width="540" height="1057" alt="La misma pantalla de inicio en tema oscuro.">
+          </figure>
+        </div>
+      </div>
+
+      <section id="objetivo" aria-labelledby="h-objetivo">
+        <h2 id="h-objetivo">Nuestro objetivo</h2>
+        <p class="sub">Organizar una partida de juegos de mesa suele depender de grupos de mensajería, carteles y mucha suerte. MeepleMatch lo convierte en algo simple y seguro.</p>
+        <div class="two">
+          <div>
+            <p class="big">Que nadie se quede sin jugar por no saber a quién invitar.</p>
+            <p>MeepleMatch es una aplicación para Android y web donde la comunidad de jugadores de mesa se encuentra, comparte sus juegos y arma partidas. Nació como proyecto final académico y reúne las funciones que más se necesitan para organizar un encuentro, sin vueltas.</p>
+          </div>
+          <ul class="check">
+            <li><div><b>Conectar personas con gustos afines</b><span>Cada perfil cuenta qué juegos tiene, cuáles quiere probar y qué experiencia tiene.</span></div></li>
+            <li><div><b>Organizar partidas, clubes e intercambios</b><span>El Tablón reúne anuncios con juego, ciudad y cuántas personas se buscan.</span></div></li>
+            <li><div><b>Cuidar la comunidad</b><span>Los chats son privados y solo se abren entre quienes se aceptaron. Hay moderación para quien incumple las normas.</span></div></li>
+            <li><div><b>Ser accesible para todas las personas</b><span>Tema claro y oscuro, tres tamaños de texto, alto contraste y opciones para daltonismo.</span></div></li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="publico" aria-labelledby="h-publico">
+        <h2 id="h-publico">Para quién es</h2>
+        <p class="sub">Para cualquier persona que disfrute de los juegos de mesa, sea cual sea su nivel.</p>
+        <div class="grid">
+          <div class="card"><h3>Quienes buscan un grupo</h3><p>Personas que se mudaron, que no tienen amigos que jueguen o que quieren conocer gente nueva con quien compartir una mesa.</p></div>
+          <div class="card"><h3>Quienes organizan partidas</h3><p>Anfitriones de jornadas de juego, clubes y cafés lúdicos que necesitan completar mesas y avisar a los interesados.</p></div>
+          <div class="card"><h3>Principiantes y expertos</h3><p>Cada perfil indica el nivel de experiencia, así quien empieza encuentra gente paciente y quien sabe encuentra desafíos.</p></div>
+          <div class="card"><h3>Coleccionistas e intercambios</h3><p>Quienes tienen una colección y quieren mostrarla, prestar juegos o encontrar a alguien con quien intercambiar.</p></div>
+          <div class="card"><h3>Personas con necesidades de accesibilidad</h3><p>La app se adapta: texto más grande, mayor contraste, paletas para daltonismo y menos animaciones.</p></div>
+        </div>
+        <div class="chips" aria-label="Tipos de publicación del tablón">
+          <span class="chip">Partidas</span><span class="chip">Proyectos de diseño de juegos</span><span class="chip">Clubes</span><span class="chip">Intercambios</span>
+        </div>
+      </section>
+
+      <section id="como-funciona" aria-labelledby="h-como">
+        <h2 id="h-como">Cómo funciona</h2>
+        <p class="sub">En cinco pasos estás jugando.</p>
+        <ol class="steps">
+          <li><div><b>Crea tu cuenta</b><span>Con correo y contraseña (mínimo 8 caracteres) o con tu cuenta de Google. Si olvidas la clave, usa «Olvidé mi contraseña»; también puedes cambiarla después desde Perfil.</span></div></li>
+          <li><div><b>Completa tu perfil</b><span>En <em>Perfil</em> pon tu nombre, ciudad, nivel de experiencia y los tipos de juego que prefieres.</span></div></li>
+          <li><div><b>Arma tu biblioteca</b><span>En <em>Juegos</em> busca en el catálogo y marca «En mi colección», «Ya lo jugué» o «Quiero jugarlo».</span></div></li>
+          <li><div><b>Explora el Tablón</b><span>Filtra por juego, ciudad o rol. Toca <em>Me interesa</em> o <em>Invitar a jugar</em>, o publica el tuyo y elige cuánto tiempo estará abierto. Puedes borrarlo cuando quieras.</span></div></li>
+          <li><div><b>Chatea con quien te acepte</b><span>Cuando aceptan tu invitación se abre un chat privado en <em>Chat</em>. En <em>Avisos</em> ves invitaciones, respuestas, mensajes y nuevos interesados.</span></div></li>
+        </ol>
+      </section>
+
+      <section id="funciones" aria-labelledby="h-funciones">
+        <h2 id="h-funciones">Qué incluye</h2>
+        <p class="sub">Las funciones principales de MeepleMatch.</p>
+        <div class="grid">
+          <div class="card"><h3>Tablón de proyectos</h3><p>Anuncios con juego, jugadores buscados y duración elegible. Se pueden editar y borrar.</p></div>
+          <div class="card"><h3>Tu biblioteca</h3><p>Los juegos que tienes, los que jugaste y los que quieres probar, desde un catálogo con portadas. También puedes agregar un juego propio.</p></div>
+          <div class="card"><h3>Invitación mutua y chat privado</h3><p>Nadie te escribe sin tu permiso: el chat se desbloquea solo cuando ambas personas aceptan, y el servidor lo verifica.</p></div>
+          <div class="card"><h3>Avisos dentro de la app</h3><p>Una bandeja reúne todo lo que pasa con tus invitaciones y anuncios, además de las notificaciones push.</p></div>
+          <div class="card"><h3>Cuenta segura</h3><p>Ingreso con correo o Google, recuperación y cambio de contraseña, y sesión que se mantiene. Los permisos se validan en el servidor.</p></div>
+          <div class="card"><h3>Comunidad moderada</h3><p>Quien administra puede ocultar o borrar anuncios y suspender cuentas que incumplan las normas.</p></div>
+        </div>
+      </section>
+
+      <section id="capturas" aria-labelledby="h-capturas">
+        <h2 id="h-capturas">Así se ve</h2>
+        <p class="sub">Capturas reales de la aplicación en un celular Android.</p>
+        <div class="shots">
+          <figure class="phone"><img loading="lazy" src="img/ingreso.jpg" width="540" height="1057" alt="Pantalla de ingreso con correo y contraseña, pestañas Iniciar sesión y Crear cuenta."><figcaption>Ingreso y registro</figcaption></figure>
+          <figure class="phone"><img loading="lazy" src="img/tablon.jpg" width="540" height="1058" alt="Tablón con una publicación de la comunidad y los botones Me interesa e Invitar a jugar."><figcaption>Tablón de proyectos</figcaption></figure>
+          <figure class="phone"><img loading="lazy" src="img/chat.jpg" width="540" height="1057" alt="Pantalla de Mensajes: el chat privado se habilita cuando ambas personas aceptan."><figcaption>Mensajes y solicitudes</figcaption></figure>
+          <figure class="phone"><img loading="lazy" src="img/accesibilidad.jpg" width="540" height="1058" alt="Centro de accesibilidad con las opciones de tema y de tamaño del texto: normal, grande y muy grande."><figcaption>Accesibilidad</figcaption></figure>
+          <figure class="phone"><img loading="lazy" src="img/contrasena.jpg" width="540" height="1058" alt="Perfil con la tarjeta para crear o cambiar la contraseña."><figcaption>Cuenta y contraseña</figcaption></figure>
+        </div>
+      </section>
+
+      <section id="instalar" aria-labelledby="h-instalar">
+        <h2 id="h-instalar">Instalación</h2>
+        <p class="sub">Elige cómo quieres usarla.</p>
+        <div class="grid">
+          <div class="card">
+            <h3>Android (APK)</h3>
+            <p>Descarga el instalador y ábrelo en tu celular. La primera vez Android te pedirá permiso para «instalar apps de origen desconocido»: acéptalo solo para esta descarga.</p>
+            <p style="margin-top:12px"><a class="btn primary" id="apk2" href="#instalar" aria-disabled="true">Descargar APK</a></p>
+          </div>
+          <div class="card" data-web hidden>
+            <h3>En el navegador</h3>
+            <p>Abre la app web desde cualquier computadora o celular. No necesitas instalar nada.</p>
+            <p style="margin-top:12px"><a class="btn primary" data-web href="#instalar">Abrir la app web</a></p>
+          </div>
+          <div class="card">
+            <h3>Para desarrolladores</h3>
+            <p>Con el código del proyecto: <code>npm install</code> y <code>npx expo start</code>. Escanea el QR con <b>Expo Go</b>. Para generar el APK: <code>npm run build:apk</code>.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="prueba" aria-labelledby="h-prueba">
+        <h2 id="h-prueba">Cuentas de prueba</h2>
+        <p class="sub">Entra sin registrarte para ver cómo se comporta cada rol. Son cuentas de demostración compartidas: no guardes datos personales en ellas.</p>
+        <div class="creds">
+          <article class="card cred" aria-labelledby="c-user">
+            <span class="tag">Rol · Usuario estándar</span>
+            <h3 id="c-user">Jugador de prueba</h3>
+            <dl>
+              <dt>Correo</dt><dd id="u-mail">usuario.prueba@meeplematch.app</dd><dd><button class="copy" type="button" data-copy="u-mail">Copiar</button></dd>
+              <dt>Contraseña</dt><dd id="u-pass">Prueba#2026</dd><dd><button class="copy" type="button" data-copy="u-pass">Copiar</button></dd>
+            </dl>
+            <p>Puede publicar en el Tablón, armar su biblioteca, invitar y chatear. No ve el panel de administración.</p>
+          </article>
+          <article class="card cred" aria-labelledby="c-admin">
+            <span class="tag">Rol · Administrador</span>
+            <h3 id="c-admin">Administrador de prueba</h3>
+            <dl>
+              <dt>Correo</dt><dd id="a-mail">admin.prueba@meeplematch.app</dd><dd><button class="copy" type="button" data-copy="a-mail">Copiar</button></dd>
+              <dt>Contraseña</dt><dd id="a-pass">Admin#2026</dd><dd><button class="copy" type="button" data-copy="a-pass">Copiar</button></dd>
+            </dl>
+            <p>Todo lo anterior, más gestionar el catálogo de juegos y, desde <em>Admin</em>, moderar usuarios y anuncios.</p>
+          </article>
+        </div>
+        <p class="note"><b>Para probar la mensajería</b> necesitas dos personas: entra con una cuenta en el celular y con la otra en el navegador (o en otra ventana privada), envía una invitación y acéptala.</p>
+      </section>
+
+      <section id="tecnologia" aria-labelledby="h-tec">
+        <h2 id="h-tec">Tecnología</h2>
+        <p class="sub">Una sola base de código para Android y web.</p>
+        <div class="chips">
+          <span class="chip">Expo y React Native</span><span class="chip">TypeScript</span><span class="chip">Supabase (Auth, Storage, Edge Functions)</span><span class="chip">PostgreSQL con seguridad por filas (RLS)</span><span class="chip">Notificaciones push de Expo</span><span class="chip">EAS Build (APK)</span>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      MeepleMatch · Proyecto final académico · E.P.E.T N° 30, San Martín de los Andes.
+      <!-- EDITAR (opcional): agrega aquí el nombre del autor, por ejemplo: · Autor: Nombre Apellido -->
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      // ───────────── CONFIGURACIÓN: es lo único que hay que editar ─────────────
+      // apkUrl: enlace de descarga directa del .apk (release de GitHub o enlace de EAS).
+      // webUrl: dirección de la app web publicada. Déjalo vacío si no hay versión web.
+      var CONFIG = {
+        apkUrl: '',
+        webUrl: ''
+      };
+      // ───────────────────────────────────────────────────────────────────────
+
+      var root = document.documentElement;
+      try { var saved = localStorage.getItem('mm-theme'); if (saved) root.setAttribute('data-theme', saved); } catch (e) {}
+
+      document.getElementById('theme').addEventListener('click', function () {
+        var dark = root.getAttribute('data-theme') === 'dark' ||
+          (!root.getAttribute('data-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        var next = dark ? 'light' : 'dark';
+        root.setAttribute('data-theme', next);
+        try { localStorage.setItem('mm-theme', next); } catch (e) {}
+      });
+
+      document.querySelectorAll('[data-copy]').forEach(function (button) {
+        button.addEventListener('click', function () {
+          var text = document.getElementById(button.getAttribute('data-copy')).textContent;
+          var done = function () { button.textContent = '¡Copiado!'; setTimeout(function () { button.textContent = 'Copiar'; }, 1500); };
+          if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function () {});
+        });
+      });
+
+      // Botones del APK: se activan solo si hay un enlace configurado.
+      ['apk', 'apk2'].forEach(function (id) {
+        var link = document.getElementById(id);
+        if (!link) return;
+        if (CONFIG.apkUrl) {
+          link.href = CONFIG.apkUrl;
+          link.removeAttribute('aria-disabled');
+          link.setAttribute('rel', 'noopener');
+        } else {
+          link.textContent = 'APK próximamente';
+          link.addEventListener('click', function (event) { event.preventDefault(); });
+        }
+      });
+
+      // Elementos de la app web: aparecen solo si hay dirección.
+      document.querySelectorAll('[data-web]').forEach(function (el) {
+        if (!CONFIG.webUrl) return;
+        el.hidden = false;
+        if (el.tagName === 'A') el.href = CONFIG.webUrl;
+      });
+    })();
+  </script>
+</body>
+</html>

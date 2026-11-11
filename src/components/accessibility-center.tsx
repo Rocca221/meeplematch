@@ -4,7 +4,6 @@ import { StyleSheet, Switch, View } from 'react-native';
 import { Pressable } from '@/components/accessible-pressable';
 import { Choice } from '@/components/choice';
 import { StatusMessage } from '@/components/status-message';
-import { TextSizeSlider } from '@/components/text-size-slider';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { TEXT_PRESETS } from '@/constants/accessibility-prefs';
@@ -96,7 +95,7 @@ export function AccessibilityCenter({ compact = false }: AccessibilityCenterProp
     },
   ];
 
-  const percent = Math.round(prefs.textScale * 100);
+  const percent = Math.round(effective.textScale * 100);
   const activePreset = TEXT_PRESETS.find((preset) => preset.scale === prefs.textScale)?.id;
   const presetLabels: Record<(typeof TEXT_PRESETS)[number]['id'], string> = {
     normal: t('Texto normal', 'Normal text'),
@@ -151,16 +150,6 @@ export function AccessibilityCenter({ compact = false }: AccessibilityCenterProp
             />
           ))}
         </View>
-        <ThemedText type="smallBold">
-          {t(`Tamaño personalizado: ${percent} %`, `Custom size: ${percent}%`)}
-        </ThemedText>
-        <TextSizeSlider value={prefs.textScale} onChange={(textScale) => update({ textScale })} />
-        <ThemedText type="small" themeColor="textSecondary">
-          {t(
-            'Va del 85 % al 200 %. Puedes usar las flechas del teclado o los botones A− y A+.',
-            'Ranges from 85% to 200%. You can use the keyboard arrows or the A− and A+ buttons.',
-          )}
-        </ThemedText>
       </Section>
 
       {/* Contraste */}

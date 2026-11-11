@@ -7,13 +7,16 @@ import {
   TabListProps,
 } from 'expo-router/ui';
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 
 import { Pressable } from '@/components/accessible-pressable';
 
-import { Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
+import { Fonts, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { setNavInset } from '@/hooks/use-top-inset';
+import { supabase } from '@/lib/supabase';
+import { useAppPanels } from '@/providers/app-panels-provider';
 import { useLanguage } from '@/providers/language-provider';
 
 import { ThemedText } from './themed-text';
@@ -96,14 +99,68 @@ export function TabButton({
   );
 }
 
+/** Acción de la barra (no es una pestaña): mismo aspecto que un TabButton sin seleccionar. */
+function BarAction({
+  label,
+  accessibilityLabel,
+  onPress,
+  disabled,
+}: {
+  label: string;
+  accessibilityLabel: string;
+  onPress: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.tabButton,
+        { borderBottomColor: 'transparent' },
+        pressed && styles.pressed,
+      ]}>
+      <ThemedText type="smallBold" themeColor="textSecondary" style={styles.tabLabel}>
+        {label}
+      </ThemedText>
+    </Pressable>
+  );
+}
+
 export function CustomTabList({ children }: TabListProps) {
   const theme = useTheme();
   const router = useRouter();
   const { language } = useLanguage();
+  const [signingOut, setSigningOut] = useState(false);
+  const { unreadCount, openInbox, isAdmin, openAdmin } = useAppPanels();
+  const en = language === 'en';
+
+  async function signOut() {
+    setSigningOut(true);
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) window.alert(error.message);
+    } catch (error) {
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : en
+            ? 'Could not sign out.'
+            : 'No se pudo cerrar la sesión.',
+      );
+    } finally {
+      setSigningOut(false);
+    }
+  }
 
   return (
     <View
-      style={styles.tabListContainer}
+      style={[
+        styles.tabListContainer,
+        { backgroundColor: theme.background, borderBottomColor: theme.border },
+      ]}
       onLayout={(event) => setNavInset(event.nativeEvent.layout.height)}>
       <ThemedView
         type="backgroundElement"
@@ -117,17 +174,35 @@ export function CustomTabList({ children }: TabListProps) {
 
         {children}
 
-        <Pressable
-          accessibilityLabel={
-            language === 'en' ? 'Open accessibility settings' : 'Abrir ajustes de accesibilidad'
+        <BarAction
+          label={
+            (en ? 'Notifications' : 'Avisos') + (unreadCount ? ` (${unreadCount})` : '')
           }
+          accessibilityLabel={
+            en
+              ? `Notifications, ${unreadCount} unread`
+              : `Avisos, ${unreadCount} sin leer`
+          }
+          onPress={openInbox}
+        />
+        {isAdmin ? (
+          <BarAction
+            label="Admin"
+            accessibilityLabel={en ? 'Open admin panel' : 'Abrir panel de administración'}
+            onPress={openAdmin}
+          />
+        ) : null}
+        <BarAction
+          label={en ? 'Accessibility' : 'Accesibilidad'}
+          accessibilityLabel={en ? 'Open accessibility settings' : 'Abrir ajustes de accesibilidad'}
           onPress={() => router.push({ pathname: '/profile', params: { section: 'accessibility' } })}
-          style={[styles.a11yButton, { borderColor: theme.border }]}>
-          <ThemedText type="smallBold" style={{ color: theme.accent }}>
-            Aa
-          </ThemedText>
-          <ThemedText type="smallBold">Accesibilidad</ThemedText>
-        </Pressable>
+        />
+        <BarAction
+          label={signingOut ? (en ? 'Signing out...' : 'Saliendo...') : en ? 'Sign out' : 'Salir'}
+          accessibilityLabel={en ? 'Sign out' : 'Cerrar sesión'}
+          disabled={signingOut}
+          onPress={() => void signOut()}
+        />
       </ThemedView>
     </View>
   );
@@ -137,9 +212,14 @@ const styles = StyleSheet.create({
   tabListContainer: {
     position: 'absolute',
     top: 0,
-    zIndex: 10,
+    left: 0,
+    right: 0,
+    // Siempre por encima del contenido, que además queda detrás con fondo opaco.
+    zIndex: 100,
     width: '100%',
-    padding: Spacing.three,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderBottomWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',
@@ -154,15 +234,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexGrow: 1,
     gap: Spacing.two,
-    maxWidth: MaxContentWidth,
-  },
-  a11yButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.one,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: Spacing.two,
   },
   brand: {
     marginRight: 'auto',

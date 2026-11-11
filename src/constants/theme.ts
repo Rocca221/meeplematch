@@ -53,8 +53,11 @@ export const Spacing = {
 } as const;
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
-/** Ancho máximo del contenido en pantallas grandes (web / tablet). */
-export const MaxContentWidth = 1280;
+/**
+ * Ancho máximo del contenido. '100%' = sin tope: el contenido ocupa toda la
+ * pantalla en web y tablet. Poner un número (p. ej. 1280) para volver a limitarlo.
+ */
+export const MaxContentWidth = '100%' as const;
 /**
  * Espacio superior que ocupa la barra de navegación flotante de la web.
  * En móvil las pestañas van abajo, así que no hace falta reservar nada.

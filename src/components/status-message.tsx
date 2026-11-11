@@ -5,6 +5,7 @@ import { Pressable } from '@/components/accessible-pressable';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useAccessibility } from '@/providers/accessibility-provider';
 import { useLanguage } from '@/providers/language-provider';
 
 export type StatusKind = 'error' | 'success' | 'warning' | 'info';
@@ -33,6 +34,9 @@ const LABELS: Record<StatusKind, { es: string; en: string; icon: string }> = {
 export function StatusMessage({ kind, children, style, onDismiss }: StatusMessageProps) {
   const theme = useTheme();
   const { language } = useLanguage();
+  const { effective } = useAccessibility();
+  // El círculo del icono crece junto con el texto para que el símbolo no se desborde.
+  const iconSize = Math.round(22 * effective.textScale);
   const label = LABELS[kind][language];
   const tone =
     kind === 'error'
@@ -61,7 +65,10 @@ export function StatusMessage({ kind, children, style, onDismiss }: StatusMessag
       <View
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
-        style={[styles.icon, { backgroundColor: tone }]}>
+        style={[
+          styles.icon,
+          { backgroundColor: tone, width: iconSize, height: iconSize, borderRadius: iconSize / 2 },
+        ]}>
         <ThemedText type="smallBold" style={[styles.iconText, { color: theme.background }]}>
           {LABELS[kind].icon}
         </ThemedText>

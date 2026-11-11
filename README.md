@@ -163,8 +163,9 @@ MeepleMatch incluye un **centro de accesibilidad** en **Perfil → Accesibilidad
 (también desde el botón «Aa Accesibilidad» de la barra superior en web y desde
 la pantalla de ingreso). Todo se aplica al instante y se guarda solo.
 
-- **Texto:** normal / grande / muy grande y control deslizante de 85 % a 200 %
-  (flechas del teclado o botones A− / A+).
+- **Texto:** tres tamaños fijos (normal 100 %, grande 125 %, muy grande 150 %).
+  No hay valores intermedios para que ninguna pantalla se rompa; si el sistema
+  operativo ya agranda la letra, se usa el tamaño permitido más cercano.
 - **Contraste:** normal, alto y muy alto (bordes visibles, texto reforzado).
 - **Daltonismo:** protanopía, deuteranopía, tritanopía y escala de grises. Los
   estados nunca dependen solo del color: llevan icono y texto.
@@ -244,6 +245,186 @@ Role changes are intentionally not available through the mobile client.
 Never put the PostgreSQL password, a secret API key, or the `service_role` key
 in the app or any `EXPO_PUBLIC_*` variable. The publishable key is intended for
 client use; row-level security protects the database.
+
+## Asistente de IA (agente)
+
+El botón flotante **✦** (abajo a la derecha, en todas las pantallas) abre un
+asistente que **actúa** dentro de la app, no solo conversa: consulta datos,
+los analiza y ejecuta acciones con herramientas sobre la cuenta de la persona.
+
+**Qué puede hacer** (25 herramientas):
+
+| Tipo | Herramientas |
+| --- | --- |
+| Consultar | perfil, catálogo de juegos, biblioteca, Tablón, mis publicaciones e interesados, jugadores, invitaciones, notificaciones, lectura de un chat |
+| Analizar | `analyze_library` (estadísticas, huecos y sugerencias), `recommend_projects` (puntúa publicaciones según biblioteca, ciudad y gustos) |
+| Cargar datos | `add_games_to_library` (carga masiva), `update_my_profile`, `add_game_to_catalog` (solo administradores) |
+| Actuar | crear/editar/eliminar publicaciones, mostrar interés, responder solicitudes, enviar y responder invitaciones, escribir por chat, marcar notificaciones como leídas |
+
+**Seguridad (por diseño)**
+- La clave de Groq vive solo en el servidor (secreto de Supabase). El cliente
+  nunca la ve.
+- Todas las herramientas corren con el **JWT del propio usuario**: las políticas
+  RLS siguen mandando, así que el asistente no puede hacer más que la persona.
+- Confirmación en la app: las acciones **públicas, destructivas o que afectan a
+  otras personas** (publicar, borrar, invitar, escribir, responder solicitudes)
+  se detienen y piden *Aprobar / Rechazar*. Las de bajo riesgo (cargar juegos,
+  editar el perfil, guardar un borrador, marcar notificaciones) se ejecutan solas,
+  salvo que se active "Pedir confirmación para todas las acciones".
+- Los textos escritos por otras personas (publicaciones, perfiles, mensajes) se
+  tratan como datos, no como instrucciones (defensa contra *prompt injection*).
+- Límite diario por usuario (`ASSISTANT_DAILY_LIMIT`, 120 por defecto) y
+  **historial de auditoría** (`assistant_actions`) visible en el panel.
+
+**Modelo de IA: Groq (plan gratuito)**
+La función usa la API de Groq, compatible con OpenAI y con *tool calling*. Por
+defecto prueba, en orden, `meta-llama/llama-4-scout-17b-16e-instruct`,
+`llama-3.3-70b-versatile` y `openai/gpt-oss-20b`: si uno agota su cuota por
+minuto o ya no existe, pasa al siguiente. Los nombres y límites gratuitos
+cambian con frecuencia; revisa <https://console.groq.com/docs/models> y
+<https://console.groq.com/docs/rate-limits>. Para fijar otros modelos:
+`npx supabase@latest secrets set ASSISTANT_MODELS=modelo1,modelo2`.
+
+**Puesta en marcha**
+1. Ejecuta `supabase/migrations/20261104150000_assistant.sql` en el SQL Editor.
+2. Crea una clave gratuita en <https://console.groq.com/keys> y guárdala como
+   secreto (nunca en la app ni en `.env`):
+
+   ```bash
+   npx supabase@latest login
+   npx supabase@latest secrets set GROQ_API_KEY=gsk_...
+   ```
+3. Despliega la función:
+
+   ```bash
+   npx supabase@latest functions deploy assistant
+   ```
+4. Recompila el APK (`npm run build:apk`) para que lleve el botón del asistente.
+
+El plan gratuito tiene límites por minuto y por día (compartidos por toda tu
+cuenta de Groq). Si se agotan, la app muestra un aviso y se puede reintentar
+más tarde; para una demo conviene probar el flujo completo antes.
+
+Código: `supabase/functions/assistant/` (`agent.ts` bucle del agente,
+`tools.ts` herramientas, `index.ts` HTTP/auth/modelo) y, en la app,
+`src/providers/assistant-provider.tsx` + `src/components/assistant-launcher.tsx`.
+
+## Novedades: duración de anuncios, avisos, moderación y sitio público
+
+### 1. Aplicar la migración (una sola vez)
+
+En **Supabase → SQL Editor**, pega y ejecuta el contenido completo de
+`supabase/migrations/20261110120000_expiry_notifications_moderation.sql`. Agrega:
+
+- **Duración de anuncios**: columna `projects.expires_at`. Al vencer, el anuncio
+  deja de verse para los demás (lo aplica la base de datos); su autor lo sigue
+  viendo y puede renovarlo editándolo.
+- **Borrado**: el autor puede eliminar su anuncio (y el administrador, cualquiera).
+- **Avisos**: la tabla `notifications` ahora también se llena sola cuando alguien
+  te invita, responde tu invitación, se interesa en tu anuncio o un administrador
+  modera tu contenido. Se actualizan en vivo (Realtime).
+- **Moderación**: tabla `user_suspensions` y funciones `admin_list_users` /
+  `admin_set_user_suspended`, que solo ejecutan administradores. Un usuario
+  suspendido no puede publicar, mostrar interés ni invitar.
+
+Después publica de nuevo la función de chat para que también respete las
+suspensiones:
+
+```bash
+npx supabase functions deploy send-message
+```
+
+### 2. Cómo se usa
+
+- **Tablón**: en *+ Publicar* eliges cuántos días queda abierto (o «Sin límite»).
+  En cada anuncio propio hay un botón **Eliminar** con confirmación.
+- **Avisos**: en web, botón *Avisos* de la barra superior (con contador); en el
+  celular, botón *Avisos* en Inicio.
+- **Admin** (solo administradores): botón *Admin* en la misma barra / en Inicio.
+  Permite suspender o reactivar usuarios y ocultar, volver a mostrar o eliminar
+  anuncios. Para volver administrador a una cuenta, desde el SQL Editor:
+
+  ```sql
+  update public.user_roles set role = 'admin'
+  where user_id = (select id from auth.users where email = 'admin.prueba@meeplematch.app');
+  ```
+
+### 3. Cuentas de prueba y sitio público
+
+El sitio de presentación está en `public/sitio/index.html` (un solo archivo, sin
+dependencias). Con `npx expo start --web` se ve en `/sitio/index.html`; también
+puedes subirlo tal cual a cualquier hosting estático.
+
+Las credenciales que muestra **hay que crearlas** una vez. Los pasos y el SQL
+están en `supabase/test-accounts.sql`:
+
+| Rol | Correo | Contraseña |
+| --- | --- | --- |
+| Usuario estándar | `usuario.prueba@meeplematch.app` | `Prueba#2026` |
+| Administrador | `admin.prueba@meeplematch.app` | `Admin#2026` |
+
+Si prefieres otras, cámbialas también en `public/sitio/index.html` y en el SQL.
+Usa solo cuentas de demostración: las credenciales son públicas.
+
+### Activar el botón de descarga del APK
+
+En `public/sitio/index.html`, al final del archivo, hay un bloque `CONFIG`:
+
+```js
+var CONFIG = {
+  apkUrl: '',   // enlace directo al .apk
+  webUrl: ''    // dirección de la app web, si existe
+};
+```
+
+Pega ahí el enlace y los botones «Descargar APK» se activan solos (mientras esté
+vacío dicen «APK próximamente»).
+
+## Descargar la app (APK)
+
+**Descarga directa:** <!-- REEMPLAZAR con el enlace -->
+`https://github.com/USUARIO/REPO/releases/latest/download/meeplematch.apk`
+
+Cómo publicar el APK de forma permanente (el enlace de EAS vence):
+
+1. Descarga el `.apk` terminado desde <https://expo.dev> → tu proyecto → *Builds*
+   y renómbralo `meeplematch.apk`.
+2. En GitHub: repositorio → *Releases* → *Draft a new release* → crea una etiqueta
+   (por ejemplo `v1.0.0`) → arrastra `meeplematch.apk` → *Publish release*.
+3. El enlace `.../releases/latest/download/meeplematch.apk` siempre apunta a la
+   última versión. Pégalo arriba y en `CONFIG.apkUrl` del sitio.
+
+Para instalarlo, el celular pedirá permitir «instalar apps de orígenes
+desconocidos» solo para esa descarga.
+
+## Jerarquía de pantallas
+
+La navegación tiene **dos niveles** y se decide por la sesión. Los grupos entre
+paréntesis son solo carpetas: no cambian las URLs (`/`, `/explore`, ...).
+
+```
+src/app/
+├─ _layout.tsx        Raíz: providers globales + pantalla de carga
+├─ (auth)/            NIVEL 0 · sin sesión
+│  ├─ _layout.tsx     Con sesión te manda a la app
+│  └─ sign-in.tsx     Ingresar / Crear cuenta / Olvidé mi contraseña / Contraseña nueva
+└─ (app)/             NIVEL 1 · con sesión
+   ├─ _layout.tsx     Sin sesión te manda a /sign-in · pestañas + asistente
+   ├─ index.tsx       Inicio
+   ├─ explore.tsx     Tablón
+   ├─ library.tsx     Juegos
+   ├─ messages.tsx    Chat
+   └─ profile.tsx     Perfil (incluye Accesibilidad)
+```
+
+Reglas para mantenerla clara:
+
+- Una pantalla nueva con sesión va en `src/app/(app)/`; una sin sesión, en `src/app/(auth)/`.
+- El detalle de un elemento (juego, proyecto, conversación) se abre como panel
+  dentro de su pestaña, no como una pantalla más; así siempre se sabe en qué
+  pestaña se está.
+- Barra superior (web) y pestañas inferiores (celular) muestran las mismas cinco
+  secciones en el mismo orden.
 
 ## Instalar MeepleMatch en el celular (APK Android)
 
@@ -351,3 +532,10 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
+## Acceso con Google y cambio de contraseña
+
+- **Continuar con Google**: botón en la pantalla de acceso (`src/components/auth-screen.tsx`). La lógica está en `src/lib/google-auth.ts` y el retorno del navegador se procesa en `src/lib/auth-url.ts`.
+- **Cambiar contraseña**: tarjeta en Perfil (`src/components/change-password-card.tsx`). Verifica la contraseña actual; si la cuenta entró solo con Google, permite crear una.
+- Configuración necesaria: proveedor Google en Supabase (Authentication → Providers) y las URL de retorno en Authentication → URL Configuration: `meeplematch://auth/callback`, `exp://**` (Expo Go) y el origen web.
+- Migración `20261110150000_google_profile_names.sql`: el perfil nuevo toma el nombre que entrega Google.

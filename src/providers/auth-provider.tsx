@@ -9,6 +9,7 @@ import * as Linking from 'expo-linking';
 import { Platform } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
 
+import { sessionFromAuthUrl } from '@/lib/auth-url';
 import { supabase } from '@/lib/supabase';
 
 type AuthContextValue = {
@@ -27,62 +28,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     let active = true;
-    let handlingUrl = false;
-
     async function handleNativeAuthUrl(url: string) {
-      if (Platform.OS === 'web' || handlingUrl) return;
-      handlingUrl = true;
-
-      try {
-        const parsedUrl = new URL(url);
-        const params = new URLSearchParams(
-          parsedUrl.hash.replace(/^#/, '') || parsedUrl.search.replace(/^\?/, ''),
-        );
-        const errorDescription =
-          params.get('error_description') ?? params.get('error');
-        if (errorDescription) {
-          console.error('Supabase auth callback failed:', errorDescription);
-          return;
-        }
-
-        const code = params.get('code');
-        if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
-          if (error) throw error;
-          if (params.get('type') === 'recovery') setPasswordRecovery(true);
-          return;
-        }
-
-        const tokenHash = params.get('token_hash');
-        const type = params.get('type');
-        if (tokenHash && isEmailOtpType(type)) {
-          const { error } = await supabase.auth.verifyOtp({
-            token_hash: tokenHash,
-            type,
-          });
-          if (error) throw error;
-          if (type === 'recovery') setPasswordRecovery(true);
-          return;
-        }
-
-        const accessToken = params.get('access_token');
-        const refreshToken = params.get('refresh_token');
-        if (accessToken && refreshToken) {
-          const { error } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
-          if (error) throw error;
-          if (params.get('type') === 'recovery') setPasswordRecovery(true);
-        }
-      } catch (error) {
-        console.error(
-          'Could not complete the Supabase auth callback:',
-          error instanceof Error ? error.message : error,
-        );
-      } finally {
-        handlingUrl = false;
+      if (Platform.OS === 'web') return;
+      const result = await sessionFromAuthUrl(url);
+      if (result.error) {
+        console.error('Supabase auth callback failed:', result.error);
+        return;
       }
+      if (result.recovery) setPasswordRecovery(true);
     }
 
     const {
@@ -129,29 +82,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-function isEmailOtpType(
-  type: string | null,
-): type is
-  | 'signup'
-  | 'invite'
-  | 'magiclink'
-  | 'recovery'
-  | 'email_change'
-  | 'email'
-  | 'sms'
-  | 'phone_change' {
-  return [
-    'signup',
-    'invite',
-    'magiclink',
-    'recovery',
-    'email_change',
-    'email',
-    'sms',
-    'phone_change',
-  ].includes(type ?? '');
 }
 
 export function useAuth() {

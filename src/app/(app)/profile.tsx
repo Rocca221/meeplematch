@@ -16,6 +16,7 @@ import { StatusMessage } from '@/components/status-message';
 import { SelectedMark } from '@/components/choice';
 import { Pressable } from '@/components/accessible-pressable';
 import { AccessibilityCenter } from '@/components/accessibility-center';
+import { ChangePasswordCard } from '@/components/change-password-card';
 import { LocalizedTextInput } from '@/components/localized-text-input';
 import { PageBanner } from '@/components/page-banner';
 import { ThemedText } from '@/components/themed-text';
@@ -801,6 +802,8 @@ export default function ProfileScreen() {
             onLayout={(event) => setA11yY(event.nativeEvent.layout.y)}>
             <AccessibilityCenter />
           </ThemedView>
+
+          <ChangePasswordCard />
 
           <ThemedView type="backgroundElement" style={styles.formCard}>
             <ThemedText type="subtitle" style={styles.sectionTitle}>

@@ -1,6 +1,6 @@
 import { useWindowDimensions } from 'react-native';
 
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 
 /**
  * Reparte el ancho disponible en columnas para que el contenido llene la
@@ -12,7 +12,7 @@ export function useGridColumns({
   gap = Spacing.three,
 }: { minColumnWidth?: number; maxColumns?: number; gap?: number } = {}) {
   const { width } = useWindowDimensions();
-  const contentWidth = Math.min(width, MaxContentWidth) - Spacing.four * 2;
+  const contentWidth = width - Spacing.four * 2;
   const columns = Math.max(
     1,
     Math.min(

@@ -1,12 +1,26 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
+/**
+ * RAÍZ de la jerarquía de pantallas.
+ *
+ *   _layout.tsx            ← providers globales + pantalla de carga
+ *   ├─ (auth)/             ← NIVEL 0 · sin sesión: acceso y recuperación
+ *   │   └─ sign-in.tsx
+ *   └─ (app)/              ← NIVEL 1 · con sesión: 5 pestañas
+ *       ├─ index.tsx       (Inicio)
+ *       ├─ explore.tsx     (Tablón)
+ *       ├─ library.tsx     (Juegos)
+ *       ├─ messages.tsx    (Chat)
+ *       └─ profile.tsx     (Perfil)
+ *
+ * Los grupos entre paréntesis NO cambian la URL: `/`, `/explore`, etc. siguen igual.
+ * Qué grupo se muestra lo decide cada `_layout` según la sesión (ver `(auth)/_layout`
+ * y `(app)/_layout`), así ninguna pantalla se mezcla con otra.
+ */
+import { DarkTheme, DefaultTheme, Slot, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { ReduceMotion, ReducedMotionConfig } from 'react-native-reanimated';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import { AuthScreen } from '@/components/auth-screen';
-import { PasswordRecoveryScreen } from '@/components/password-recovery-screen';
-import AppTabs from '@/components/app-tabs';
 import { ThemedView } from '@/components/themed-view';
 import { useEffectiveColorScheme } from '@/hooks/use-effective-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
@@ -17,7 +31,7 @@ import { ThemePreferenceProvider } from '@/providers/theme-preference-provider';
 
 SplashScreen.preventAutoHideAsync();
 
-export default function TabLayout() {
+export default function RootLayout() {
   return (
     <AuthProvider>
       <ThemePreferenceProvider>
@@ -66,7 +80,7 @@ function MotionPreference() {
 }
 
 function AppContent() {
-  const { session, loading, passwordRecovery } = useAuth();
+  const { loading } = useAuth();
 
   return (
     <View style={styles.container}>
@@ -74,12 +88,10 @@ function AppContent() {
         <ThemedView style={styles.loading}>
           <ActivityIndicator size="large" accessibilityLabel="Cargando" />
         </ThemedView>
-      ) : session && passwordRecovery ? (
-        <PasswordRecoveryScreen />
-      ) : session ? (
-        <AppTabs />
       ) : (
-        <AuthScreen />
+        // Hasta saber si hay sesión no se monta ningún grupo; así no hay
+        // redirecciones erróneas ni parpadeos entre acceso y app.
+        <Slot />
       )}
       <AnimatedSplashOverlay />
     </View>

@@ -8,7 +8,7 @@ import type { ColorMode, ContrastLevel } from '@/constants/palettes';
 export type Writable<T> = { -readonly [K in keyof T]: T[K] };
 
 export type AccessibilityPrefs = {
-  /** Multiplicador del tamaño de texto (0.85 a 2). */
+  /** Multiplicador del tamaño de texto: solo 1, 1.25 o 1.5 (ver TEXT_PRESETS). */
   textScale: number;
   colorMode: ColorMode;
   contrast: ContrastLevel;
@@ -21,15 +21,17 @@ export type AccessibilityPrefs = {
   updatedAt: number;
 };
 
-export const TEXT_SCALE_MIN = 0.85;
-export const TEXT_SCALE_MAX = 2;
-export const TEXT_SCALE_STEP = 0.05;
-
+/**
+ * Únicos tamaños de texto permitidos. No hay valores intermedios: cada pantalla
+ * está revisada para estos tres, y más opciones tienden a romper el diseño.
+ */
 export const TEXT_PRESETS = [
   { id: 'normal', scale: 1 },
   { id: 'large', scale: 1.25 },
   { id: 'xlarge', scale: 1.5 },
 ] as const;
+
+export type TextScale = (typeof TEXT_PRESETS)[number]['scale'];
 
 export const DEFAULT_PREFS: AccessibilityPrefs = {
   textScale: 1,
@@ -64,11 +66,17 @@ export const DEFAULT_SYSTEM: SystemA11y = {
   fontScale: 1,
 };
 
-export function clampTextScale(value: number) {
+/**
+ * Lleva cualquier valor al tamaño permitido más cercano. Sirve para ajustes
+ * guardados con la versión anterior (que admitía valores intermedios).
+ */
+export function snapTextScale(value: number): TextScale {
   if (!Number.isFinite(value)) return 1;
-  const stepped = Math.round(value / TEXT_SCALE_STEP) * TEXT_SCALE_STEP;
-  const clamped = Math.min(TEXT_SCALE_MAX, Math.max(TEXT_SCALE_MIN, stepped));
-  return Math.round(clamped * 100) / 100;
+  let best: TextScale = TEXT_PRESETS[0].scale;
+  for (const preset of TEXT_PRESETS) {
+    if (Math.abs(preset.scale - value) < Math.abs(best - value)) best = preset.scale;
+  }
+  return best;
 }
 
 /** Valida datos leídos del almacenamiento o de la cuenta; ignora campos inválidos. */
@@ -77,7 +85,7 @@ export function sanitizePrefs(raw: unknown): AccessibilityPrefs {
   return {
     textScale:
       typeof value.textScale === 'number'
-        ? clampTextScale(value.textScale)
+        ? snapTextScale(value.textScale)
         : DEFAULT_PREFS.textScale,
     colorMode: COLOR_MODES.includes(value.colorMode as ColorMode)
       ? (value.colorMode as ColorMode)
@@ -105,8 +113,8 @@ export function sanitizePrefs(raw: unknown): AccessibilityPrefs {
 }
 
 export type EffectiveA11y = {
-  /** Escala final aplicada al texto (preferencia × escala del sistema si se respeta). */
-  textScale: number;
+  /** Escala final aplicada al texto: siempre uno de los tres tamaños permitidos. */
+  textScale: TextScale;
   contrast: ContrastLevel;
   colorMode: ColorMode;
   reduceMotion: boolean;
@@ -128,8 +136,10 @@ export function resolveEffective(
       ? CONTRAST_ORDER[Math.max(1, CONTRAST_ORDER.indexOf(prefs.contrast))]
       : prefs.contrast;
   const reduceMotion = prefs.reduceMotion || (follow && system.reduceMotion);
-  const systemFont = follow ? Math.min(2, Math.max(1, system.fontScale)) : 1;
-  const textScale = Math.round(prefs.textScale * systemFont * 100) / 100;
+  // La escala del sistema no se multiplica (daba tamaños imprevisibles): se
+  // lleva al tamaño permitido más cercano y se usa el mayor de los dos.
+  const systemStep = follow ? snapTextScale(system.fontScale) : 1;
+  const textScale: TextScale = Math.max(snapTextScale(prefs.textScale), systemStep) as TextScale;
   return {
     textScale,
     contrast,

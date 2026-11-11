@@ -18,6 +18,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { signInWithGoogle } from '@/lib/google-auth';
 import { supabase } from '@/lib/supabase';
 import { useLanguage, type AppLanguage } from '@/providers/language-provider';
 
@@ -31,6 +32,7 @@ export function AuthScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [isError, setIsError] = useState(false);
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
@@ -51,6 +53,18 @@ export function AuthScreen() {
         error instanceof Error ? error.message : 'No se pudo guardar el idioma.',
       );
     }
+  }
+
+  async function continueWithGoogle() {
+    setGoogleBusy(true);
+    setFeedback('');
+    setIsError(false);
+    const { error } = await signInWithGoogle();
+    if (error) {
+      setFeedback(error);
+      setIsError(true);
+    }
+    setGoogleBusy(false);
   }
 
   function changeMode(nextMode: AuthMode) {
@@ -192,12 +206,14 @@ export function AuthScreen() {
   return (
     <ThemedView style={styles.screen}>
       <SafeAreaView style={styles.safeArea}>
-        <KeyboardAvoidingView
-          style={styles.keyboardArea}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        {/* 'padding' también en Android: con edge-to-edge el sistema ya no
+            redimensiona la ventana y el teclado tapaba los campos. */}
+        <KeyboardAvoidingView style={styles.keyboardArea} behavior="padding">
           <ScrollView
             contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled">
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+            showsVerticalScrollIndicator={false}>
             <View style={styles.card}>
               <View style={styles.languagePicker}>
                 {(
@@ -349,6 +365,32 @@ export function AuthScreen() {
                 </ThemedText>
               </Pressable>
 
+              {mode !== 'forgotPassword' ? (
+                <>
+                  <View style={styles.orRow} accessibilityElementsHidden importantForAccessibility="no">
+                    <View style={[styles.orLine, { backgroundColor: borderColor }]} />
+                    <ThemedText type="small" style={{ color: secondaryColor }}>
+                      o
+                    </ThemedText>
+                    <View style={[styles.orLine, { backgroundColor: borderColor }]} />
+                  </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Continuar con Google"
+                    disabled={busy || googleBusy}
+                    onPress={() => void continueWithGoogle()}
+                    style={({ pressed }) => [
+                      styles.googleButton,
+                      { borderColor },
+                      (pressed || googleBusy) && styles.pressed,
+                    ]}>
+                    <ThemedText type="smallBold">
+                      {googleBusy ? 'Abriendo Google...' : 'Continuar con Google'}
+                    </ThemedText>
+                  </Pressable>
+                </>
+              ) : null}
+
               {mode === 'signIn' ? (
                 <Pressable
                   accessibilityRole="button"
@@ -497,6 +539,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.four,
+    paddingBottom: Spacing.six,
   },
   card: {
     width: '100%',
@@ -597,6 +640,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.three,
+  },
+  googleButton: {
+    minHeight: 50,
+    borderWidth: 1,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
+  },
+  orRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  orLine: {
+    flex: 1,
+    height: 1,
   },
   submitText: {
     color: '#FFFFFF',
