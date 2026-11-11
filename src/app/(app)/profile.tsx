@@ -31,7 +31,6 @@ import {
   type LocationSuggestion,
 } from '@/hooks/use-location-suggestions';
 import { supabase } from '@/lib/supabase';
-import { registerPushToken } from '@/lib/register-push-token';
 import { useAuth } from '@/providers/auth-provider';
 import { useLanguage, type AppLanguage } from '@/providers/language-provider';
 import {
@@ -112,10 +111,8 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [registeringPush, setRegisteringPush] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [pushMessage, setPushMessage] = useState('');
   const [newGameType, setNewGameType] = useState('');
   const [locationQuery, setLocationQuery] = useState('');
   const {
@@ -324,8 +321,8 @@ export default function ProfileScreen() {
       if (!imageResponse.ok) {
         throw new Error('No se pudo leer la foto seleccionada.');
       }
-      const imageBlob = await imageResponse.blob();
-      if (imageBlob.size > 8 * 1024 * 1024) {
+      const imageBlob = await imageResponse.arrayBuffer();
+      if (imageBlob.byteLength > 8 * 1024 * 1024) {
         throw new Error('La foto debe pesar menos de 8 MB.');
       }
       const imagePath = `${userId}/avatar.jpg`;
@@ -357,26 +354,6 @@ export default function ProfileScreen() {
       );
     } finally {
       setUploadingAvatar(false);
-    }
-  }
-
-  async function enablePushNotifications() {
-    if (!userId) return;
-    setRegisteringPush(true);
-    setPushMessage('');
-    setError('');
-
-    try {
-      await registerPushToken(userId);
-      setPushMessage('Notificaciones push activadas en este dispositivo.');
-    } catch (pushError) {
-      setPushMessage(
-        pushError instanceof Error
-          ? pushError.message
-          : 'No se pudieron activar las notificaciones.',
-      );
-    } finally {
-      setRegisteringPush(false);
     }
   }
 
@@ -804,34 +781,6 @@ export default function ProfileScreen() {
           </ThemedView>
 
           <ChangePasswordCard />
-
-          <ThemedView type="backgroundElement" style={styles.formCard}>
-            <ThemedText type="subtitle" style={styles.sectionTitle}>
-              Notificaciones
-            </ThemedText>
-            <ThemedText themeColor="textSecondary">
-              Recibe avisos cuando llegue un mensaje nuevo.
-            </ThemedText>
-            {pushMessage ? (
-              <StatusMessage
-                kind={pushMessage.startsWith('Notificaciones') ? 'success' : 'error'}>
-                {pushMessage}
-              </StatusMessage>
-            ) : null}
-            <Pressable
-              accessibilityRole="button"
-              disabled={registeringPush}
-              onPress={() => void enablePushNotifications()}
-              style={({ pressed }) => [
-                styles.saveButton,
-                { backgroundColor: theme.accentFill },
-                (pressed || registeringPush) && styles.disabled,
-              ]}>
-              <ThemedText style={styles.saveText}>
-                {registeringPush ? 'Activando...' : 'Activar notificaciones'}
-              </ThemedText>
-            </Pressable>
-          </ThemedView>
 
           {error ? <StatusMessage kind="error">{error}</StatusMessage> : null}
           {message ? <StatusMessage kind="success">{message}</StatusMessage> : null}

@@ -29,6 +29,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { useTopInset } from '@/hooks/use-top-inset';
 import { confirmAction } from '@/lib/confirm';
 import { fitImageTo16x9 } from '@/lib/image-fit';
+import { readImageForUpload } from '@/lib/image-upload';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/auth-provider';
 import { useLanguage } from '@/providers/language-provider';
@@ -465,16 +466,12 @@ export default function ProjectsScreen() {
     try {
       if (projectImageUri) {
         setUploadingProjectImage(true);
-        const response = await fetch(projectImageUri);
-        if (!response.ok) {
-          throw new Error('No se pudo leer la imagen seleccionada.');
-        }
-        const imageBlob = await response.blob();
-        if (imageBlob.size > 8 * 1024 * 1024) {
+        const { buffer: imageBuffer, contentType } =
+          await readImageForUpload(projectImageUri);
+        if (imageBuffer.byteLength > 8 * 1024 * 1024) {
           throw new Error('La imagen debe pesar menos de 8 MB.');
         }
 
-        const contentType = imageBlob.type || 'image/jpeg';
         const fileExtension = {
           'image/jpeg': 'jpg',
           'image/png': 'png',
@@ -487,7 +484,7 @@ export default function ProjectsScreen() {
         uploadedImagePath = `${userId}/${Date.now()}.${fileExtension}`;
         const { error: uploadError } = await supabase.storage
           .from('project-images')
-          .upload(uploadedImagePath, imageBlob, {
+          .upload(uploadedImagePath, imageBuffer, {
             contentType,
             upsert: false,
           });

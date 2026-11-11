@@ -434,8 +434,8 @@ export default function LibraryScreen() {
       setError('');
       const response = await fetch(asset.uri);
       if (!response.ok) throw new Error('No se pudo leer la imagen elegida.');
-      const imageBlob = await response.blob();
-      if (imageBlob.size > 8 * 1024 * 1024) {
+      const imageBlob = await response.arrayBuffer();
+      if (imageBlob.byteLength > 8 * 1024 * 1024) {
         throw new Error('La portada debe pesar menos de 8 MB.');
       }
 

@@ -145,7 +145,6 @@ Deno.serve(async (request: Request) => {
     return jsonResponse({ error: 'Could not save the message.' }, 500);
   }
 
-  const warnings: string[] = [];
   const { error: notificationError } = await adminClient
     .from('notifications')
     .insert({
@@ -159,91 +158,10 @@ Deno.serve(async (request: Request) => {
     });
   if (notificationError) {
     console.error('In-app notification insert failed:', notificationError.message);
-    warnings.push('No se pudo crear la notificación interna.');
-  }
-
-  const { data: senderProfile, error: senderProfileError } = await adminClient
-    .from('profiles')
-    .select('display_name')
-    .eq('id', user.id)
-    .maybeSingle();
-  if (senderProfileError) {
-    console.error('Sender profile lookup failed:', senderProfileError.message);
-  }
-
-  const { data: pushTokens, error: tokenError } = await adminClient
-    .from('push_tokens')
-    .select('token')
-    .eq('user_id', recipientId);
-  if (tokenError) {
-    console.error('Push token lookup failed:', tokenError.message);
-    warnings.push('No se pudieron consultar los dispositivos del destinatario.');
-  }
-
-  let sent = 0;
-  let failed = 0;
-  const tokens = (pushTokens ?? []).map((row) => row.token as string);
-  if (tokens.length) {
-    try {
-      for (let offset = 0; offset < tokens.length; offset += 100) {
-        const batch = tokens.slice(offset, offset + 100);
-        const response = await fetch(
-          'https://exp.host/--/api/v2/push/send',
-          {
-            method: 'POST',
-            headers: {
-              Accept: 'application/json',
-              'Accept-encoding': 'gzip, deflate',
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(
-              batch.map((to) => ({
-                to,
-                title: senderProfile?.display_name ?? 'Nuevo mensaje',
-                body:
-                  messageBody.length > 140
-                    ? `${messageBody.slice(0, 137)}...`
-                    : messageBody,
-                sound: 'default',
-                channelId: 'messages',
-                data: { screen: 'messages', conversationId },
-              })),
-            ),
-          },
-        );
-        if (!response.ok) {
-          throw new Error(`Expo Push Service returned HTTP ${response.status}.`);
-        }
-        const result = (await response.json()) as {
-          data?: { status?: string }[] | { status?: string };
-        };
-        const tickets = Array.isArray(result.data)
-          ? result.data
-          : result.data
-            ? [result.data]
-            : [];
-        sent += tickets.filter((ticket) => ticket.status === 'ok').length;
-        failed += tickets.length - tickets.filter(
-          (ticket) => ticket.status === 'ok',
-        ).length;
-      }
-    } catch (pushError) {
-      const details =
-        pushError instanceof Error ? pushError.message : 'Unknown push error.';
-      console.error('Push delivery failed:', details);
-      warnings.push(`No se pudo enviar la notificación push: ${details}`);
-      failed = Math.max(failed, tokens.length - sent);
-    }
   }
 
   return jsonResponse({
     message: savedMessage,
-    push: {
-      targets: tokens.length,
-      sent,
-      failed,
-      ...(warnings.length ? { error: warnings.join(' ') } : {}),
-    },
     ...(notificationError
       ? { notificationError: 'No se pudo crear la notificación interna.' }
       : {}),

@@ -186,40 +186,23 @@ Código: `src/providers/accessibility-provider.tsx` (estado y persistencia),
 componentes compartidos `ThemedText`, `ThemedView`, `LocalizedTextInput` y
 `accessible-pressable` aplican las preferencias a toda la app.
 
-### Fotos de perfil y notificaciones push
-
-Para habilitar la nueva subida de avatar y el envío seguro de notificaciones
-push:
+### Fotos de perfil y envío seguro de mensajes
 
 1. Ejecuta una sola vez en **Supabase → SQL Editor** el archivo
    `supabase/migrations/20261021170000_avatar_push_delivery.sql`. La foto se
    guarda en el bucket público `avatars`; cada usuario solo puede reemplazar
-   su propio archivo.
+   su propio archivo. Además, los mensajes solo se pueden insertar desde la
+   función de servidor.
 2. Despliega la función que valida que el usuario pertenece a una conversación
-   aceptada, guarda el mensaje y envía push a los dispositivos registrados:
+   aceptada y guarda el mensaje:
 
    ```bash
    npx supabase@latest functions deploy send-message
    ```
 
-3. Asocia el proyecto Expo a EAS desde la raíz del proyecto:
-
-   ```bash
-   npx eas-cli@latest init
-   ```
-
-   Esto agrega el identificador del proyecto que la app necesita para generar
-   tokens push. Configura también las credenciales de notificación Android/iOS
-   en EAS según la guía oficial de Expo.
-4. Las notificaciones push remotas no funcionan en Expo Go para Android desde
-   SDK 53. Para probarlas, instala el cliente de desarrollo y configura EAS
-   Build:
-
-   ```bash
-   npx expo install expo-dev-client
-   npx eas-cli@latest build:configure
-   npx eas-cli@latest build --profile development --platform android
-   ```
+Las notificaciones push del sistema se quitaron: los avisos (invitaciones,
+mensajes, respuestas, moderación) se ven dentro de la app, en la bandeja de
+*Avisos*, y se actualizan en tiempo real.
 
    Instala la compilación en un dispositivo físico; Expo Go sigue sirviendo
    para las otras pantallas y para elegir fotos.
@@ -466,16 +449,7 @@ El resultado es un `.apk` que se instala sin Expo Go y sin tu PC encendida.
 5. **Instalar**: al terminar, EAS muestra un enlace y un código QR. Ábrelo desde
    el celular, descarga el `.apk` y permite "instalar apps de orígenes
    desconocidos" cuando Android lo pida.
-6. **Notificaciones push en el APK (opcional)**: Android exige Firebase (FCM).
-   Crea un proyecto en <https://console.firebase.google.com>, registra la app
-   Android con el paquete `com.meeplematch.app`, y sube la credencial *FCM V1*
-   con `npx eas-cli@latest credentials` (Android → *Google Service Account Key
-   for Push Notifications*). Descarga `google-services.json`, guárdalo en la
-   raíz y agrega en `app.json` → `expo.android.googleServicesFile`:
-   `"./google-services.json"`; vuelve a compilar. Sin esto la app funciona igual
-   y las notificaciones se ven dentro de la app; solo el aviso push del sistema
-   queda desactivado.
-7. **Actualizar la app**: vuelve a ejecutar `npm run build:apk` e instala el nuevo
+6. **Actualizar la app**: vuelve a ejecutar `npm run build:apk` e instala el nuevo
    `.apk` encima del anterior (conserva la sesión y los datos).
 
 Para publicar en Google Play usa el perfil `production` (genera `.aab`):

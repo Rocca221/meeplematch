@@ -81,12 +81,6 @@ type ChatMessage = {
 
 type SendMessageResponse = {
   message: ChatMessage;
-  push: {
-    targets: number;
-    sent: number;
-    failed: number;
-    error?: string;
-  };
   notificationError?: string;
 };
 
@@ -449,21 +443,6 @@ export default function MessagesScreen() {
             : [...current, data.message],
         );
         setDraft('');
-        if (data.push.error) {
-          setSendNotice(
-            `Mensaje enviado; no se pudo completar la notificación: ${data.push.error}`,
-          );
-        } else if (data.push.targets === 0) {
-          setSendNotice(
-            'Mensaje enviado. El destinatario todavía no activó notificaciones push.',
-          );
-        } else if (data.push.failed > 0) {
-          setSendNotice(
-            `Mensaje enviado; ${data.push.sent} notificación(es) enviada(s) y ${data.push.failed} fallida(s).`,
-          );
-        } else {
-          setSendNotice('Notificación push enviada.');
-        }
         if (data.notificationError) {
           setSendNotice(
             `${data.notificationError} Puedes seguir usando el chat; el mensaje quedó guardado.`,

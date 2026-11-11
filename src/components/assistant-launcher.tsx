@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   BackHandler,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -113,6 +114,14 @@ function AssistantPanel() {
     };
   }, [setOpen]);
 
+  // Al abrir el teclado, volver al final de la conversación para ver lo que se escribe.
+  useEffect(() => {
+    const subscription = Keyboard.addListener('keyboardDidShow', () => {
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 50);
+    });
+    return () => subscription.remove();
+  }, []);
+
   function submit() {
     if (!draft.trim() || busy || pending.length) return;
     send(draft);
@@ -150,7 +159,7 @@ function AssistantPanel() {
         ]}>
         <KeyboardAvoidingView
           style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          behavior="padding">
           <View style={[styles.header, { borderBottomColor: theme.border }]}>
             <View style={styles.headerTitle}>
               <ThemedText type="subtitle" style={styles.title}>

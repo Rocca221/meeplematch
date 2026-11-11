@@ -38,14 +38,6 @@
         }
       ],
       [
-        "expo-notifications",
-        {
-          "icon": "./assets/images/notification-icon.png",
-          "color": "#4A86F0",
-          "defaultChannel": "messages"
-        }
-      ],
-      [
         "expo-image-picker",
         {
           "photosPermission": "MeepleMatch necesita acceso a tus fotos para actualizar tu imagen de perfil.",
